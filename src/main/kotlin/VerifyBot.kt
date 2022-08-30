@@ -57,6 +57,7 @@ fun main() {
 		.onEach { event ->
 			val username = event.values.find { it.id == "username" }!!.asString
 			val key = event.values.find { it.id == "secret_key" }!!.asString
+				.run { if (startsWith("#")) substring(1) else this } // Trim off leading #
 
 			event.deferReply(true)
 
