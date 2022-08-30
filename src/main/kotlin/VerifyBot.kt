@@ -2,6 +2,7 @@ package com.mcdiamondfire.verifybot
 
 import com.mcdiamondfire.verifybot.db.DATABASE
 import com.mcdiamondfire.verifybot.db.LinkedAccounts
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -17,11 +18,16 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.experimental.suspendedTransactionAsync
 import org.jetbrains.exposed.sql.update
+import org.slf4j.LoggerFactory
 import java.util.concurrent.TimeUnit
 
+val LOG = LoggerFactory.getLogger("VerifyBot")
 
 fun main() {
-	val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+	val scope = CoroutineScope(Dispatchers.Default + SupervisorJob() + CoroutineExceptionHandler { ctx, throwable ->
+		LOG.error("Exception thrown in coroutine: $ctx", throwable)
+	})
+
 	val events = MutableSharedFlow<GenericEvent>()
 
 	JDABuilder.createLight(Config.token)
@@ -31,6 +37,8 @@ fun main() {
 	events.filterIsInstance<ButtonInteractionEvent>()
 		.filter { it.componentId == "open_verify_prompt" }
 		.onEach { event ->
+			LOG.info("Opened verify modal for ${event.user.asTag} ${event.user.id}")
+
 			event.replyModal(
 				Modal.create("verify_modal", "Enter Your Information")
 					.addActionRow(
@@ -59,6 +67,8 @@ fun main() {
 			val key = event.values.find { it.id == "secret_key" }!!.asString
 				.run { if (startsWith("#")) substring(1) else this } // Trim off leading #
 
+			LOG.info("Attempting to verify ${event.user.asTag} ${event.user.id} with ${username}/${key}...")
+
 			event.deferReply(true)
 
 			// Find the verified role
@@ -70,6 +80,8 @@ fun main() {
 				val res = LinkedAccounts.select(LinkedAccounts.secretKey eq key).singleOrNull()
 
 				if (res == null) {
+					LOG.warn("User had no associated account.")
+
 					event.reply("$ERR There is no account associated with this code.")
 						.setEphemeral(true)
 						.queue()
@@ -80,11 +92,15 @@ fun main() {
 				val uuid = res[LinkedAccounts.playerUuid]
 
 				if (name.equals(username, true)) {
+					LOG.info("Username and code matched! Verifying as $name/$uuid")
+
 					// Remove the key, set the Discord id
 					LinkedAccounts.update({ LinkedAccounts.playerUuid eq uuid }) {
 						it[secretKey] = null
 						it[discordId] = event.user.id
 					}
+
+					LOG.info("Database updated.")
 
 					event.reply("$OK Your account has been successfully verified!") // Reply
 						.setEphemeral(true)
@@ -95,6 +111,7 @@ fun main() {
 
 						.queue()
 				} else {
+					LOG.warn("User entered correct code, but incorrect username.")
 					event.reply("$ERR Your username did not match that associated with the code.")
 						.setEphemeral(true)
 						.queue()

@@ -24,13 +24,13 @@ val exposedVersion: String by project
 val ktomlVersion: String by project
 
 dependencies {
-    testImplementation(kotlin("test"))
+    implementation("ch.qos.logback", "logback-classic", "1.2.8")
 
     implementation("net.dv8tion", "JDA", "5.0.0-alpha.18") {
         exclude(module = "opus-java")
     }
 
-    implementation("mysql:mysql-connector-java:8.0.30")
+    implementation("mysql", "mysql-connector-java", "8.0.30")
 
     implementation("com.akuleshov7", "ktoml-core", ktomlVersion)
     implementation("com.akuleshov7", "ktoml-file", ktomlVersion)
@@ -38,10 +38,6 @@ dependencies {
     implementation("org.jetbrains.exposed", "exposed-core", exposedVersion)
     implementation("org.jetbrains.exposed", "exposed-dao", exposedVersion)
     implementation("org.jetbrains.exposed", "exposed-jdbc", exposedVersion)
-}
-
-tasks.test {
-    useJUnitPlatform()
 }
 
 tasks.withType<KotlinCompile> {
