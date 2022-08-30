@@ -1,0 +1,7 @@
+token = "bot token"
+verifyRole = 1234567 # A role ID
+
+[database]
+username = "db user"
+password = "db password"
+url = "jdbc:mysql://ip/table"
